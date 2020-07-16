@@ -23,7 +23,7 @@ So, thinking about infrastructure automation, I developed a CloudFormation model
 | [Load Balancer](https://github.com/thiagolizard/aws-resources/blob/master/cloudformation/loadbalancer-template.yml) | This model is a load balancer (application) model, contains load balancer, target group, listeners and listeners rules (optional). |
 | [Memcached](https://github.com/thiagolizard/aws-resources/blob/master/cloudformation/memcache-template.yml) | This template is a model of the ElasticCache service's Memcached caching system, it contains a Memcache cluster, where it is created for high availability (Multi-AZ) in the subnets you choose. |
 | [Others](https://github.com/thiagolizard/aws-resources/tree/master/cloudformation) | See all templates on this repo |
-|
+
 
 ---
 # <img src="icons/icon-48x48.png" alt="banner2" width="32"> AWS Lambda
