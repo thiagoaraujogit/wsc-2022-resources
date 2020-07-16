@@ -1,0 +1,130 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "RequestCount", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/d8c23b2f93ec42ab" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Requests"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "TargetResponseTime", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/d8c23b2f93ec42ab" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Average",
+                "period": 60,
+                "title": "Response Time"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "HTTPCode_ELB_4XX_Count", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/73d0a049547c639d" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Bad Request"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "HTTPCode_ELB_504_Count", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/73d0a049547c639d" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Gateway Time-Out"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "HTTPCode_ELB_503_Count", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/73d0a049547c639d" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Service Unavailable"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "HTTPCode_ELB_502_Count", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/73d0a049547c639d" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Bad Gateway"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "HTTPCode_ELB_500_Count", "TargetGroup", "targetgroup/Prod-Application-TG/9b66480462b7c26b", "LoadBalancer", "app/Prod-ElasticLoadBalancer/73d0a049547c639d" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Internal Server Error"
+            }
+        }
+    ]
+}

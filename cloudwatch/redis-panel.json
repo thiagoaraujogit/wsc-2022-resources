@@ -1,0 +1,61 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ElastiCache", "CacheHits", "CacheClusterId", "prod-redis-default-001", "CacheNodeId", "0001" ],
+                    [ "...", "prod-redis-default-002", ".", ".", { "yAxis": "right" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Redis Hits"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ElastiCache", "CacheMisses", "CacheClusterId", "prod-redis-default-001", "CacheNodeId", "0001" ],
+                    [ "...", "prod-redis-default-002", ".", ".", { "yAxis": "right" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Redis Misses"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ElastiCache", "CurrItems", "CacheClusterId", "prod-redis-default-001", "CacheNodeId", "0001" ],
+                    [ "...", "prod-redis-default-002", ".", ".", { "yAxis": "right" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 60,
+                "title": "Redis Items"
+            }
+        }
+    ]
+}
