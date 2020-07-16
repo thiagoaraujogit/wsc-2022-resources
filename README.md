@@ -19,11 +19,11 @@ So, thinking about infrastructure automation, I developed a CloudFormation model
 **For example:**
 | Template |Description  |
 |--|--|
-| [Network](github.com/thiagolizard/aws-resources/cloudformation/vpc/network-template.yaml) | This model is a network model, developed in the industry standard, security standards and high availability (VPC, Subnets, ACLs, Security Groups, etc). |
-| [Load Balancer](github.com/thiagolizard/aws-resources/cloudformation/vpc/loadbalancer-template.yaml) | This model is a load balancer (application) model, contains load balancer, target group, listeners and listeners rules (optional). |
-| [Memcached](github.com/thiagolizard/aws-resources/cloudformation/vpc/memcache-template.yaml) | This template is a model of the ElasticCache service's Memcached caching system, it contains a Memcache cluster, where it is created for high availability (Multi-AZ) in the subnets you choose. |
-| [Others](github.com/thiagolizard/aws-resources/cloudformation) | See all templates on this repo |
-
+| [Network](https://github.com/thiagolizard/aws-resources/blob/master/cloudformation/network-template.yaml) | This model is a network model, developed in the industry standard, security standards and high availability (VPC, Subnets, ACLs, Security Groups, etc). |
+| [Load Balancer](https://github.com/thiagolizard/aws-resources/blob/master/cloudformation/loadbalancer-template.yml) | This model is a load balancer (application) model, contains load balancer, target group, listeners and listeners rules (optional). |
+| [Memcached](https://github.com/thiagolizard/aws-resources/blob/master/cloudformation/memcache-template.yml) | This template is a model of the ElasticCache service's Memcached caching system, it contains a Memcache cluster, where it is created for high availability (Multi-AZ) in the subnets you choose. |
+| [Others](https://github.com/thiagolizard/aws-resources/tree/master/cloudformation) | See all templates on this repo |
+|
 
 ---
 # <img src="icons/icon-48x48.png" alt="banner2" width="32"> AWS Lambda
@@ -38,7 +38,7 @@ So, I developed some lambda functions (usually they work with lambda triggers) t
   <br>
 </div>
 
-You can see this functions [here](github.com/thiagolizard/aws-resources/lambda)
+You can see this functions [here](https://github.com/thiagolizard/aws-resources/tree/master/lambda)
 
 ---
 
@@ -56,5 +56,8 @@ All panels are configured with the best monitoring metrics for each service!
   <br>
 </div>
 
+You can see all panels [here](https://github.com/thiagolizard/aws-resources/tree/master/cloudwatch)
+
 ---
+# So...
 In this repository there are several other resources besides those mentioned above, so, explore!
