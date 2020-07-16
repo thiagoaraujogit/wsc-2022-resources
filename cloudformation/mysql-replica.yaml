@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: MySQL read replica
+
+Parameters:
+
+  Network:
+    Type: String
+    Description: Network stack name
+
+  MySQLStack: 
+    Type: String
+    Description: MySQL source database stack name
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Database security (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Application version
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+        - MySQLStack
+    -
+      Label:
+        default: "Environment Properties"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Database Properties"
+      Parameters:
+        - SubnetPrefix
+        - Version
+
+Resources:
+  MySQLDBReadReplica:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllocatedStorage: 20
+      # BackupRetentionPeriod: 0
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql-replica']]
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${MySQLStack}-MySQLSecurityGroup
+      Engine: mysql
+      EngineVersion: 8.0.15
+      SourceDBInstanceIdentifier:
+        Fn::ImportValue: !Sub ${MySQLStack}-MySQLDBInstance
+      PubliclyAccessible: false
+      # StorageEncrypted: true
+      # KmsKeyId: !Ref RDSKMSKey
+      StorageType: gp2
+      Tags:
+        - Key: Name
+          Value: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql-replica']]
+
+  # RDSKMSKey:
+  #   Type: AWS::KMS::Key
+  #   Properties:
+  #     KeyPolicy:
+  #       Version: 2012-10-17
+  #       Id: RDS
+  #       Statement:
+  #         - Sid: Enable IAM User Permissions
+  #           Effect: Allow
+  #           Principal:
+  #             AWS: !Join ['',['arn:aws:iam::',!Ref 'AWS::AccountId',':root']]
+  #           Action: 'kms:*'
+  #           Resource: '*'
+
+Outputs:
+  MySQLDBReadReplica:
+    Description: MySQLARN
+    Value: !Ref MySQLDBReadReplica
+    Export:
+      Name: !Sub "${AWS::StackName}-MySQLDBReadReplica"
+
+  MySQLDBReadReplicaEndpoint:
+    Description: 'MySQL Endpoint'
+    Value: !GetAtt [MySQLDBReadReplica,Endpoint.Address]
+    Export:
+      Name: !Sub "${AWS::StackName}-MySQLDBReadReplicaEndpoint"
+

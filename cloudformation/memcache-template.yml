@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Memcache (Elasticache Cluster)
+
+Parameters:
+  NetworkStack:
+    Type: String
+    Description: Name of network stack with VPC and Subnets
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Subnets where memcache will're stay
+    Default: Public
+    AllowedValues:
+      - Public
+      - Private
+
+Metadata:
+   AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - NetworkStack
+        - ApplicationStack
+    -
+      Label:
+        default: "Enviroment Definition"
+      Parameters:
+        - EnvironmentType
+        - SubnetPrefix
+
+Resources:
+  MemcacheCluster:
+    Type: "AWS::ElastiCache::CacheCluster"
+    Properties:
+      AZMode: cross-az
+      AutoMinorVersionUpgrade: true
+      CacheNodeType: cache.t2.micro
+      CacheSubnetGroupName: !Ref MemcacheSubnetGroup
+      ClusterName: !Sub ${EnvironmentType}-Memcache-ELC
+      Engine: memcached
+      NumCacheNodes: 2
+      Port: 11211
+      VpcSecurityGroupIds:
+        - !Ref MemCacheSecurityGroup
+
+  MemcacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: MemCacheSubnetGroup
+      Description: MemCacheSubnetGroup
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+
+  MemCacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-Memcache-SecurityGroup
+      GroupDescription: Memcache access
+      VpcId:
+        Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 11211
+          ToPort: 11211
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub ${NetworkStack}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Memcache-SG
+
+Outputs:
+  MemcacheClusterEndpoint:
+    Value: !GetAtt [MemcacheCluster, ConfigurationEndpoint.Address]
+    Export:
+      Name: !Sub "${AWS::StackName}-MemcacheEndpoint"
+
+  MemCacheSecurityGroup:
+    Value: !Ref MemCacheSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-MemcacheSecurityGroup"

@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+
+Parameters:
+  NetworkStack:
+    Type: String
+    Description: Name of network stack with VPC and Subnets
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  TargetType:
+    Description: "instance: directs to ec2 instances | ip: directs to IPs (fargate) | lambda: directs to lambda functions"
+    Default: instance
+    Type: String
+    AllowedValues:
+      - instance
+      - ip
+      - lambda
+
+  SubnetPrefix:
+    Type: String
+    Description: Subnets where load balancer will're stay
+    Default: Public
+    AllowedValues:
+      - Public
+      - Private
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Application Load Balancer - Properties"
+      Parameters:
+        - NetworkStack
+        - EnvironmentType
+        - SubnetPrefix
+        - TargetType
+
+Resources:
+  ElasticLoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: !Sub ${EnvironmentType}-ElasticLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${NetworkStack}-ElbSecurityGroup
+      Subnets:
+        - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+      Type: application
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: 4000
+
+  ElbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ElbTargetGroup
+      LoadBalancerArn: !Ref ElasticLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  ElbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckPath: /
+      TargetType: !Ref TargetType
+      Name: !Join ['-',[!Ref EnvironmentType,'Application-TG']]
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 15
+        - Key: load_balancing.algorithm.type
+          Value: least_outstanding_requests
+
+  # ElbListenerRule:
+  #   Type: AWS::ElasticLoadBalancingV2::ListenerRule
+  #   Properties:
+  #     Actions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ElbTargetGroup8080
+  #     Conditions:
+  #     - Field: path-pattern
+  #       Values:
+  #         - /refund
+  #     ListenerArn: !Ref ElbListener
+  #     Priority: 1
+
+  # ElbListener8080:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ElbTargetGroup8080
+  #     LoadBalancerArn: !Ref ElasticLoadBalancer
+  #     Port: 8080
+  #     Protocol: HTTP
+
+  # ElbTargetGroup8080:
+  #   Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  #   Properties:
+  #     HealthCheckIntervalSeconds: 5
+  #     HealthCheckTimeoutSeconds: 3
+  #     HealthyThresholdCount: 2
+  #     UnhealthyThresholdCount: 2
+  #     HealthCheckPath: /refund
+  #     Name: !Join ['-',[!Ref EnvironmentType,'SecondApp-TG']]
+  #     Port: 8080
+  #     Protocol: HTTP
+  #     VpcId:
+  #       Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
+  #     TargetGroupAttributes:
+  #       - Key: deregistration_delay.timeout_seconds
+  #         Value: 10
+
+Outputs:
+  ElasticLoadBalancerDNS:
+    Value: !GetAtt [ElasticLoadBalancer,DNSName]
+    Export:
+      Name: !Sub "${AWS::StackName}-ElasticLoadBalancer-DNS"
+
+  ElasticLoadBalancerARN:
+    Description: LoadBalancerARN
+    Value: !Ref ElasticLoadBalancer
+    Export:
+      Name: !Sub "${AWS::StackName}-ElasticLoadBalancer-ARN"
+
+  ElasticLoadBalancerFullName:
+    Description: LoadBalancerFullName
+    Value: !GetAtt [ElasticLoadBalancer,LoadBalancerFullName]
+    Export:
+      Name: !Sub "${AWS::StackName}-ElasticLoadBalancer-FullName"
+
+  ElbTargetGroupARN:
+    Description: ElbTargetGroupARN
+    Value: !Ref ElbTargetGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ElbTargetGroup-ARN"
+
+  ElbTargetGroupFullName:
+    Description: ElbTargetGroupFullName
+    Value: !GetAtt [ElbTargetGroup,TargetGroupFullName]
+    Export:
+      Name: !Sub "${AWS::StackName}-ElbTargetGroup-FullName"
+
+  ElbListener:
+    Description: ElbListenerARN
+    Value: !Ref ElbListener
+    Export:
+      Name: !Sub "${AWS::StackName}-ElbListener"
+
+  # ElbTargetGroup8080ARN:
+  #   Description: ElbTargetGroupARN
+  #   Value: !Ref ElbTargetGroup8080
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-ElbTargetGroup8080-ARN"
+
+  # ElbTargetGroup8080FullName:
+  #   Description: ElbTargetGroupFullName
+  #   Value: !GetAtt [ElbTargetGroup8080,TargetGroupFullName]
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-ElbTargetGroup8080-FullName"
+
+  # ElbListener8080:
+  #   Description: ElbListenerARN
+  #   Value: !Ref ElbListener8080
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-ElbListener8080"

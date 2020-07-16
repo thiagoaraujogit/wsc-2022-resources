@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: WAF template with variations (loadbalancer and cloudfront)
+    
+Parameters:
+  LoadBalancerStack:
+    Type: String 
+    Description: Load balancer stack name
+
+  WAFName:
+    Description: WAF name 
+    Type: String 
+
+  WAFScope: 
+    Description: REGIONAL if apply on Load Balancer, CLOUDFRONT if apply on Cloudfront
+    Type: String 
+    AllowedValues:
+      - REGIONAL 
+      - CLOUDFRONT
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - LoadBalancerStack 
+    -
+      Label:
+        default: "WAF - Properties"
+      Parameters:
+        - WAFName
+        - WAFScope 
+
+Conditions:
+  REGIONAL: !Equals [!Ref WAFScope, REGIONAL]
+  CLOUDFRONT: !Equals [!Ref WAFScope, CLOUDFRONT]
+
+Resources:
+  WAFWebACL:
+    Type: "AWS::WAFv2::WebACL"
+    Properties:
+      DefaultAction: #required
+        Allow: {}
+      Description: Default WAF Web ACL
+      Name: !Ref WAFName
+      Scope: !Ref WAFScope #required
+      Rules:
+        - 
+          Action:
+            Block: {}
+          Name: SQLInjection-Rule 
+          Priority: 1
+          Statement:
+            ByteMatchStatement:
+              FieldToMatch:
+                AllQueryArguments: 
+                  {}
+                # Body: {}
+                # Method: {}
+                # QueryString: {}
+                # SingleHeader: {}
+                # SingleQueryArgument: {}
+                # UriPath: {}
+              PositionalConstraint: CONTAINS # CONTAINS | CONTAINS_WORD | ENDS_WITH | EXACTLY | STARTS_WITH
+              SearchString: juse
+      VisibilityConfig: #required
+        CloudWatchMetricsEnabled: true 
+        MetricName: !Ref WAFName
+        SampledRequestsEnabled: Boolean
+  
+  WAFWebACLAssociationCloudfront:
+    Condition: REGIONAL
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties: 
+      ResourceArn:
+        Fn::ImportValue: !Sub ${LoadBalancerStack}-ElasticLoadBalancer-ARN
+      WebACLArn: !GetAtt WAFWebACL.Arn
+
+Outputs:
+  WAFWebACLarn:
+    Value: !GetAtt WAFWebACL.Arn 
+    Export:
+      Name: !Sub ${AWS::StackName}-WAFarn 
+
+  WAFWebACLCapacity:
+    Value: !GetAtt WAFWebACL.Capacity 
+    Export:
+      Name: !Sub ${AWS::StackName}-WAFCapacity 
+
+  WAFWebACLId:
+    Value: !GetAtt WAFWebACL.Id
+    Export:
+      Name: !Sub ${AWS::StackName}-WAFId

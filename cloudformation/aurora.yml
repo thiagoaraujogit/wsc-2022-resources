@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aurora PostgreSQL cluster
+  
+Parameters:
+  Network:
+    Type: String
+    Description: Network Stack with VPC and SubNets
+
+  DBName:
+    Type: String
+    Default: worldskills
+
+  DBUser:
+    Type: String
+    Default: root
+
+  DBPass:
+    Type: String
+
+  DBEngine:
+    Type: String
+    AllowedValues:
+      - aurora-postgresql
+      - aurora-mysql
+
+  DBPort:
+    Type: String
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Prod or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Subnets where the database instance will're stay (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Version of application
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+    -
+      Label:
+        default: "Environment Properties"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Database Properties"
+      Parameters:
+        - SubnetPrefix
+        - DBName
+        - DBUser
+        - DBPass
+        - DBEngine
+        - DBPort
+        - Version
+
+Resources:
+  AuroraRDS:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub ${EnvironmentType}-aurora-cluster
+      DBSubnetGroupName: !Ref AuroraSubnetGroup
+      DBClusterParameterGroupName: default.aurora5.6
+      DatabaseName: !Ref DBName
+      Engine: !Ref DBEngine
+      EngineMode: provisioned
+      MasterUserPassword: !Ref DBPass
+      MasterUsername: !Ref DBUser
+      Port: !Ref DBPort
+      VpcSecurityGroupIds: 
+        - !Ref AuroraSecurityGroup
+
+  AuroraInstance1:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${EnvironmentType}-writer-aurora
+      DBClusterIdentifier: !Ref AuroraRDS
+      DBInstanceClass: db.t3.medium
+      PubliclyAccessible: false
+      Engine: !Ref DBEngine
+
+  AuroraInstance2: 
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${EnvironmentType}-reader-aurora
+      DBClusterIdentifier: !Ref AuroraRDS
+      DBInstanceClass: db.t3.medium
+      PubliclyAccessible: false
+      Engine: !Ref DBEngine
+      SourceDBInstanceIdentifier: !Ref AuroraRDS
+
+  AuroraSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: Aurora subnet group
+      DBSubnetGroupName: aurora-subnetgroup
+      SubnetIds: 
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+
+  AuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-Aurora-SecurityGroup
+      GroupDescription: !Sub ${EnvironmentType}-Aurora-SecurityGroup
+      VpcId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Database-SG
+
+Outputs:
+  AuroraSecurityGroup:
+    Description: Aurora security group
+    Value: !Ref AuroraSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-AuroraSecurityGroup
+
+  AuroraEndpoint:
+    Description: Aurora endpoint
+    Value: !GetAtt [AuroraRDS,Endpoint.Address]
+    Export:
+      Name: !Sub ${AWS::StackName}-AuroraEndpoint
+
+  AuroraReadEndpoint:
+    Description: Aurora read endpoint
+    Value: !GetAtt [AuroraRDS,ReadEndpoint.Address]
+    Export:
+      Name: !Sub ${AWS::StackName}-AuroraReadEndpoint

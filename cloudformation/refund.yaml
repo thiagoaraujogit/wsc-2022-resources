@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Refund template
+
+Parameters:
+  GameTeam:
+    Description: Gameday Team ID
+    Type: String
+
+  RefundEndpoint:
+    Description: Endpoint to send refund codes (http://<endpoint>/<path>)
+    Type: String 
+
+  IAMRole:
+    Type: String
+    Description: IAM role ARN
+    
+Resources:
+  LambdaRefundFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code: #required
+        ZipFile: !Sub |
+          import json, base64, gzip, logging
+          from botocore.vendored import requests
+
+          log_level = os.getenv('LOG_LEVEL',20)
+          logger = logging.getLogger()
+          logger.setLevel(int(log_level))
+
+          def lambda_handler(event, context):
+              print(f'Event: {event}')
+              compressed_payload = base64.b64decode(event['awslogs']['data'])
+              json_payload = gzip.decompress(compressed_payload)
+              payload = json.loads(json_payload)
+
+              logging.debug(f'JSON Event: {json_payload}')
+
+              for events in payload['logEvents']:
+                  refundd = events['message'].split(" ")[6]
+                  logging.info(f'Refund code: {refundd}')
+                  parameter = {'team': '${GameTeam}', 'refund': f'refundd'}
+                  response = requests.get('${RefundEndpoint}',params=parameter)
+                  print(response.json())
+                  return {
+                      'statusCode': response.status_code,
+                      'body': response.json()
+                  }
+      Description: Refund function
+      Environment:
+        Variables:
+          LOG_LEVEL: 10
+      FunctionName: refund-function
+      Handler: index.lambda_handler #required
+      Role: !Ref IAMRole #required
+      Runtime: python3.7 #required
+  
+Outputs:
+  LambdaRefundFunctionARN:
+    Value: !GetAtt LambdaRefundFunction.Arn
+    Export:
+      Name: LambdaRefundFunctionARN
+  
+  IAMRoleLambda:
+    Value: !Sub ${IAMRole}

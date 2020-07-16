@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Redis (Elasticache Cluster)
+
+Parameters:
+  Network:
+    Type: String
+    Description: Network stack name
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Redis security (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Application version
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+    -
+      Label:
+        default: "Enviroment Definition"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Infrastructure Properties"
+      Parameters:
+        - SubnetPrefix
+    -
+      Label:
+        default: "Application Properties"
+      Parameters:
+        - Version
+
+Resources:
+  ElasticCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: RedisSubnetGroup
+      Description: RedisSubnetGroup
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-Redis-SecurityGroup
+      GroupDescription: !Sub ${EnvironmentType}-Redis-SecurityGroup
+      VpcId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+          - IpProtocol: "tcp"
+            FromPort: "6379"
+            ToPort: "6379"
+            SourceSecurityGroupId:
+              Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Redis-SG
+
+  RedisReplicationGroup:
+    Type: 'AWS::ElastiCache::ReplicationGroup'
+    Properties:
+      AutomaticFailoverEnabled: true
+      CacheNodeType: cache.t2.micro
+      CacheSubnetGroupName: !Ref ElasticCacheSubnetGroup
+      Engine: redis
+      NumCacheClusters: 2
+      Port: "6379"
+      ReplicationGroupDescription: !Sub ${EnvironmentType}-Redis-${Version}
+      ReplicationGroupId: !Sub ${EnvironmentType}-Redis-${Version}
+      SecurityGroupIds:
+        - !Ref RedisSecurityGroup
+
+Outputs:
+  RedisDNS:
+    Value: !GetAtt [RedisReplicationGroup,PrimaryEndPoint.Address]
+    Export:
+      Name: !Sub "${AWS::StackName}-RedisDNS"
+
+  RedisSecurityGroup:
+    Value: !Ref RedisSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-RedisSecurityGroup"

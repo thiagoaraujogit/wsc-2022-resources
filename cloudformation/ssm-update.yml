@@ -1,0 +1,51 @@
+        verify_parameter:
+          commands:
+            verify_parameter:
+              command: !Sub |
+                NUMBER=$(cat /dev/urandom | tr -dc '4-9' | fold -w 256 | head -n 1 | sed -e 's/^0*//' | head --bytes 1)
+                instanceid=`curl -s http://169.254.169.254/latest/meta-data/instance-id`
+                while [[ ! `aws ssm get-parameters --names parametro --query Parameters[0].Value --region us-east-1 --output text` == " " ]]
+                do
+                  update_instance=`aws ssm get-parameters --names parametro --query Parameters[0].Value --region us-east-1 --output text`
+                  echo Update em andamento '('$update_instance')' >> /tmp/update_status.log
+                  sleep $NUMBER
+                done
+
+                aws ssm put-parameter --name parametro --type String --value $instanceid --overwrite --region us-east-1
+                echo Iniciando update '('$instanceid')' >> /tmp/update_status.log
+
+        deregister_instance:
+          commands:
+            deregister_instance:
+              command: !Sub
+              - |
+                instanceid=`curl -s http://169.254.169.254/latest/meta-data/instance-id`
+                if [[ `aws ssm get-parameters --names parametro --query Parameters[0].Value --region us-east-1 --output text` == $instanceid ]]
+                then
+                  aws elbv2 deregister-targets --target-group-arn ${ElbTargetGroup} --targets Id=$instanceid --region us-east-1
+                fi
+              - ElbTargetGroup:
+                  Fn::ImportValue: !Sub ${ElbStack}-ElbTargetGroup-ARN
+
+        register_instance:
+          commands:
+            register_instance:
+                command: !Sub
+                - |
+                  instanceid=`curl -s http://169.254.169.254/latest/meta-data/instance-id`
+
+                  if [[ `systemctl status application | grep -o 'active (running)'` == 'active (running)' ]]
+                  then
+                    aws elbv2 register-targets --target-group-arn ${ElbTargetGroup} --targets Id=$instanceid --region us-east-1
+                    echo Aplicação executada! '('$instanceid')' >> /tmp/applicationExec.log
+                  else
+                    echo Aplicação corrompida! '('$instanceid')' >> /tmp/applicationExec.log
+                    aws cloudformation signal-resource --stack-name ${AWS::StackName} --logical-resource-id AutoScale --status FAILURE --region us-east-1
+                  fi
+                - ElbTargetGroup:
+                    Fn::ImportValue: !Sub ${ElbStack}-ElbTargetGroup-ARN
+
+        clear_parameter:
+          commands:
+            clear_parameter:
+              command: aws ssm put-parameter --name parametro --type String --value ' ' --overwrite --region us-east-1

@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: PostgreSQL database instance
+
+Parameters:
+
+  Network:
+    Type: String
+    Description: Network stack name
+
+  DBName:
+    Type: String
+    Default: worldskills
+    Description: Database name
+
+  DBUser:
+    Type: String
+    Default: root
+    Description: Database user
+
+  DBPass:
+    Type: String
+    Description: Database password
+    NoEcho: true
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Database security (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Application version
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+    -
+      Label:
+        default: "Environment Properties"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Database Properties"
+      Parameters:
+        - SubnetPrefix
+        - DBName
+        - DBUser
+        - DBPass
+        - Version
+
+Resources:
+  PrivateDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: MysqlPrivateSubnetGroup
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+      Tags:
+        - Key: Name
+          Value: MysqlPrivateSubnetGroup
+
+  PostgreSQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-PostgreSQL-SecurityGroup
+      GroupDescription: !Sub ${EnvironmentType}-PostgreSQL-SecurityGroup
+      VpcId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: "tcp"
+          FromPort: "5432"
+          ToPort: "5432"
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Database-SG
+
+  PostgreSQLInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllocatedStorage: 20
+      # BackupRetentionPeriod: 0
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'postgresql']]
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - !Ref PostgreSQLSecurityGroup
+      DBSubnetGroupName: !Ref PrivateDBSubnetGroup
+      Engine: postgres
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPass
+      MultiAZ: true
+      PubliclyAccessible: false
+      # StorageEncrypted: true
+      # KmsKeyId: !Ref RDSKMSKey
+      StorageType: gp2
+      Tags:
+        - Key: Name
+          Value: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql']]
+
+  # RDSKMSKey:
+  #   Type: AWS::KMS::Key
+  #   Properties:
+  #     KeyPolicy:
+  #       Version: 2012-10-17
+  #       Id: RDS
+  #       Statement:
+  #         - Sid: Enable IAM User Permissions
+  #           Effect: Allow
+  #           Principal:
+  #             AWS: !Join ['',['arn:aws:iam::',!Ref 'AWS::AccountId',':root']]
+  #           Action: 'kms:*'
+  #           Resource: '*'
+
+Outputs:
+  PostgreSQLInstance:
+    Description: MySQLARN
+    Value: !Ref PostgreSQLInstance
+    Export:
+      Name: !Sub "${AWS::StackName}-PostgreSQLInstance"
+
+  PostgreSQLInstanceEndpoint:
+    Description: 'MySQL Endpoint'
+    Value: !GetAtt PostgreSQLInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-PostgreSQLInstanceEndpoint"
+
+  PostgreSQLSecurityGroup:
+    Description: MySQL Security group
+    Value: !Ref PostgreSQLSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-PostgreSQLSecurityGroup
+  
+  PostgreSQLSubnetGroup:
+    Description: MySQL Subnet Group
+    Value: !Ref PrivateDBSubnetGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-PostgreSQLSubnetGroup
+

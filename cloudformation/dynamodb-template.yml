@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DynamoDB table
+
+Parameters:
+  TableName:
+    Type: String
+    Description: DynamoDB table name
+    Default: unicorns
+
+  Attribute:
+    Description: Attribute name of DynamoDB table.
+    Type: String
+    Default: unicornid
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "DynamoDB Properties"
+      Parameters:
+        - TableName
+        - Attribute
+
+Resources:
+  DynamoDB:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: !Ref Attribute
+          AttributeType: S
+        # - AtributeName: unicornid
+        #   AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: !Ref Attribute
+          KeyType: HASH
+        # - AttributeName: unicornid
+        #   KeyType: HASH
+      TableName: !Ref TableName
+
+Outputs:
+  DynamoDB:
+    Value: !Ref DynamoDB
+    Export:
+      Name: !Sub "${AWS::StackName}-DynamoDB"

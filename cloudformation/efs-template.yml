@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EFS Template
+
+Parameters:
+  Network:
+    Type: String
+    Description: Name of NETWORK STACK with VPC and subnets
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Prod or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  Version:
+    Type: String
+    Description: Version application
+
+  SubnetPrefix:
+    Type: String
+    Description: Subnets where EFS will stay
+    AllowedValues:
+      - Public
+      - Private
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Associations"
+      Parameters:
+        - Network
+    -
+      Label:
+        default: "Environment Type"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Infrastructure Properties"
+      Parameters:
+        - Version
+        - SubnetPrefix
+
+Resources:
+  ElasticFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: False
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub ${EnvironmentType}-${Version}-EFS
+      # KmsKeyId: String
+      PerformanceMode: generalPurpose
+      # ProvisionedThroughputInMibps: Double
+      ThroughputMode: bursting
+
+  ElasticFileSystemMountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+
+  ElasticFileSystemMountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-EFS-SecurityGroup
+      GroupDescription: !Sub ${EnvironmentType}-EFS-SecurityGroup
+      VpcId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+          - IpProtocol: "tcp"
+            FromPort: "2049"
+            ToPort: "2049"
+            SourceSecurityGroupId:
+              Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: ElasticFileSystem-SG
+
+Outputs:
+  ElasticFileSystemDNS:
+    Description: ElasticFileSystemDNS
+    Value: !Sub ${ElasticFileSystem}.efs.${AWS::Region}.amazonaws.com
+    Export:
+      Name: !Sub '${AWS::StackName}-${EnvironmentType}-ElasticFileSystemDNS'
+
+  ElasticFileSystemID:
+    Description: ElasticFileSystemID
+    Value: !Ref ElasticFileSystem
+    Export:
+      Name: !Sub '${AWS::StackName}-${EnvironmentType}-ElasticFileSystemID'

@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: PostgreSQL read replica
+
+Parameters:
+
+  Network:
+    Type: String
+    Description: Network stack name
+
+  PostgreSQLStack: 
+    Type: String
+    Description: PostgreSQL source database stack name
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Database security (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Application version
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+        - PostgreSQLStack
+    -
+      Label:
+        default: "Environment Properties"
+      Parameters:
+        - EnvironmentType
+    -
+      Label:
+        default: "Database Properties"
+      Parameters:
+        - SubnetPrefix
+        - Version
+
+Resources:
+  PostgreSQLReadReplica:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllocatedStorage: 20
+      # BackupRetentionPeriod: 0
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'postgresql-replica']]
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${PostgreSQLStack}-PostgreSQLSecurityGroup
+      Engine: postgres
+      SourceDBInstanceIdentifier:
+        Fn::ImportValue: !Sub ${PostgreSQLStack}-PostgreSQLInstance
+      PubliclyAccessible: false
+      # StorageEncrypted: true
+      # KmsKeyId: !Ref RDSKMSKey
+      StorageType: gp2
+      Tags:
+        - Key: Name
+          Value: !Join ['-',[!Ref EnvironmentType,!Ref Version,'postgresql-replica']]
+
+  # RDSKMSKey:
+  #   Type: AWS::KMS::Key
+  #   Properties:
+  #     KeyPolicy:
+  #       Version: 2012-10-17
+  #       Id: RDS
+  #       Statement:
+  #         - Sid: Enable IAM User Permissions
+  #           Effect: Allow
+  #           Principal:
+  #             AWS: !Join ['',['arn:aws:iam::',!Ref 'AWS::AccountId',':root']]
+  #           Action: 'kms:*'
+  #           Resource: '*'
+
+Outputs:
+  PostgreSQLReadReplica:
+    Description: MySQLName
+    Value: !Ref PostgreSQLReadReplica
+    Export:
+      Name: !Sub "${AWS::StackName}-PostgreSQLReadReplicaArn"
+
+  PostgreSQLReadReplicaEndpoint:
+    Description: 'MySQL Endpoint'
+    Value: !GetAtt PostgreSQLReadReplica.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-PostgreSQLReadReplicaEndpoint"
+

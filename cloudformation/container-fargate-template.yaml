@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ECS Cluster
+  
+Parameters:
+  ELBStack:
+    Description: Load balancer stack name
+    Type: String
+
+  NetworkStack:
+    Description: Network stack name
+    Type: String
+
+  ClusterName:
+    Description: ECS Cluster name
+    Type: String
+
+  ContainerName:
+    Description: ECS Container name
+    Type: String
+
+  ServiceName:
+    Description: ECS cluster service name
+    Type: String
+
+  ContainerPort:
+    Description: ECS Container port
+    Type: String
+  
+  HostPort:
+    Description: ECS Host port
+    Type: String
+
+  EnvironmentType:
+    Description: Environment type (Production or Test)
+    Type: String
+    AllowedValues:
+      - Prod
+      - Test
+
+  ECSRoleARN:
+    Description: ECS role arn for task execution
+    Type: String
+
+  EC2InstanceProfile:
+    Description: EC2 instance for EC2 permissions
+    Type: String
+
+  SubnetPrefix:
+    Description: Subnets where containers will're stay
+    Type: String
+    AllowedValues:
+      - Private
+      - Public
+
+  ContainerMemory:
+    Description: The amount of memory (in MiB) used by the task. It can be expressed as an integer using MiB, for example 1024, or as a string using GB, for example '1GB' or '1 gb'.
+    Type: String
+    AllowedValues:
+      - 0.5GB
+      - 1GB
+      - 2GB
+      - 3GB
+      - 4GB
+      - 5GB
+      - 6GB
+
+  ContainerCPU:
+    Description: The number of CPU units used by the task. It can be expressed as an integer using CPU units, for example 1024, or as a string using vCPUs, for example '1 vCPU' or '1 vcpu'.
+    Type: String
+    AllowedValues:
+      - 0.25 vCPU
+      - 0.5 vCPU
+      - 1 vCPU
+      - 2 vCPU
+      - 4 vCPU
+
+  DockerImage:
+    Description: Docker image (URI if image is on ECR repository)
+    Type: String
+
+  KeyName:
+    Description: Key pair name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  Version:
+    Description: Application version
+    Type: String
+    Default: default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Network - Properties"
+      Parameters:
+        - NetworkStack
+    -
+      Label:
+        default: "Elastic Load Balancer - Properties"
+      Parameters:
+        - ELBStack
+    -
+      Label:
+        default: "ECS - Properties"
+      Parameters:
+        - ClusterName
+        - ServiceName
+        - ContainerName
+        - ContainerPort
+        - HostPort
+        - ContainerMemory
+        - ContainerCPU
+        - DockerImage
+        - ECSRoleARN
+        - EC2InstanceProfile
+        - KeyName
+        - EnvironmentType
+        - SubnetPrefix
+
+# Mappings:
+#   RegionMap:
+#     us-east-1:
+#       AMZLNX: ami-098616968d61e549e
+#     us-east-2:
+#       AMZLNX: ami-0c0415cdff14e2a4a
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties: 
+      ClusterName: !Ref ClusterName
+
+  ECSService:
+    Type: "AWS::ECS::Service"
+    Properties:
+      Cluster: !Ref ECSCluster
+      DeploymentConfiguration: 
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # AssignPublicIp: DISABLED/ENABLED
+          SecurityGroups: 
+            - Fn::ImportValue: !Sub ${NetworkStack}-AppSecurityGroup
+          Subnets: 
+            - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+            - Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+      DesiredCount: 2
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      LoadBalancers: 
+        - ContainerName: !Ref ContainerName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn:
+            Fn::ImportValue: !Sub ${ELBStack}-ElbTargetGroup-ARN
+      SchedulingStrategy: REPLICA
+      ServiceName: !Ref ServiceName
+      TaskDefinition: !Ref ECSTask
+
+  ECSTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        -
+          Image: !Ref DockerImage
+          Name: !Ref ContainerName
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              # HostPort: !Ref HostPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Sub ${AWS::Region}
+              awslogs-stream-prefix: ecs
+      Cpu: !Ref ContainerCPU
+      ExecutionRoleArn: !Ref ECSRoleARN
+      Family: !Ref ContainerName
+      NetworkMode: awsvpc
+      Memory: !Ref ContainerMemory
+      RequiresCompatibilities: 
+        - FARGATE
+      TaskRoleArn: !Ref ECSRoleARN
+
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ECS-${ClusterName}
+
+Outputs:
+  CloudwatchLogsGroupID:
+    Description: Cloudwatch logs group ID
+    Value: !Ref CloudwatchLogsGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-CloudwatchLogsGroupID
+  
+  CloudwatchLogsGroupARN:
+    Description: Cloudwatch logs group ARN
+    Value: !GetAtt CloudwatchLogsGroup.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CloudwatchLogsGroupARN
+
+  ECSTaskARN:
+    Description: ECS Task ARN
+    Value: !Ref ECSTask
+    Export: 
+      Name: !Sub ${AWS::StackName}-ECSTaskARN
+  
+  ECSServiceARN:
+    Description: ECS Service ARN
+    Value: !Ref ECSService
+    Export:
+      Name: !Sub ${AWS::StackName}-ECSServiceARN
+  
+  ECSServiceName:
+    Description: ECS Service name
+    Value: !GetAtt ECSService.Name
+    Export:
+      Name: !Sub ${AWS::StackName}-ECSServiceName
+
+  ECSClusterID:
+    Description: ECS Cluster ID
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub ${AWS::StackName}-ECSClusterID
+
+  ECSClusterARN:
+    Description: ECS Cluster ARN
+    Value: !GetAtt ECSCluster.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ECSClusterARN
+  
+
+
+  
+
+  
