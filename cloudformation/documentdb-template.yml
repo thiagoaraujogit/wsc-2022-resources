@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DocumentDB template
+  
+Parameters:
+  Network:
+    Type: String
+    Description: Network stack name
+
+  AZs:
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Description: Availability zones to use in the infrastructure
+
+  DBUser:
+    Type: String
+    Default: root
+    Description: Database user
+
+  DBPass:
+    Type: String
+    Description: Database password
+    NoEcho: true
+
+  EnvironmentType:
+    Type: String
+    Description: Environment type (Production or Test)
+    AllowedValues:
+      - Prod
+      - Test
+
+  SubnetPrefix:
+    Type: String
+    Description: Database security (Public or Private)
+    AllowedValues:
+      - Public
+      - Private
+
+  Version:
+    Type: String
+    Description: Application version
+    Default: Default
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Stack Association"
+      Parameters:
+        - Network
+    -
+      Label:
+        default: "DocumentDB Properties"
+      Parameters:
+        - AZs
+        - DBUser 
+        - DBPass 
+        - EnvironmentType
+        - SubnetPrefix
+        - Version
+        
+Resources:
+  DocumentDBCluster:
+    Type: "AWS::DocDB::DBCluster"
+    Properties:
+      # StorageEncrypted : true
+      EngineVersion: 3.6
+      Port: 27017
+      DBClusterIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'docdb-cluster']]
+      DBSubnetGroupName: !Ref DocDBSubnetGroup
+      DeletionProtection: true
+      AvailabilityZones:
+        - !Select [0, !Ref AZs]
+        - !Select [1, !Ref AZs]
+      MasterUsername: !Ref DBUser #required
+      MasterUserPassword: !Ref DBPass #required
+      VpcSecurityGroupIds:
+        - !Ref DocDBSecurityGroup
+
+  DocumentDBInstance1:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBInstanceClass: db.t3.medium #required
+      DBClusterIdentifier: !Ref DocumentDBCluster #required
+      # AvailabilityZone: us-east-1
+      # AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: DocumentDB-Instance-1
+    
+  DocumentDBInstance2:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBInstanceClass: db.t3.medium #required
+      DBClusterIdentifier: !Ref DocumentDBCluster #required
+      # AvailabilityZone: us-east-1
+      # AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: DocumentDB-Instance-2
+  
+  DocDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentType}-DocDB-SecurityGroup
+      GroupDescription: !Sub ${EnvironmentType}-DocDB-SecurityGroup
+      VpcId:
+        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: 27017
+          ToPort: 27017
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: DocumentDB-SG
+
+  DocDBSubnetGroup:
+    Type: "AWS::DocDB::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupName: DocumentDB-SubnetGroup
+      DBSubnetGroupDescription: DocumentDB Subnet Group #required
+      SubnetIds: #required
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
+        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
+
+Outputs:
+  DocDBSecurityGroup:
+    Value: !Ref DocDBSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-DocDBSecurityGroup
+  
+  DocumentDBClusterName:
+    Value: !Ref DocumentDBCluster
+    Export:
+      Name: !Sub ${AWS::StackName}-DocDBClusterName
+  
+  DocumentDBClusterID:
+    Value: !GetAtt [DocumentDBCluster, ClusterResourceId]
+    Export:
+      Name: !Sub ${AWS::StackName}-DocDBClusterID
+  
+  DocumentDBEndpoint:
+    Value: !GetAtt [DocumentDBCluster, Endpoint]
+    Export:
+      Name: !Sub ${AWS::StackName}-DocDBClusterEndpoint
+
+  DocumentDBReadEndpoint:
+    Value: !GetAtt [DocumentDBCluster, ReadEndpoint]
+    Export:
+      Name: !Sub ${AWS::StackName}-DocDBClusterReadEndpoint
+
+  
