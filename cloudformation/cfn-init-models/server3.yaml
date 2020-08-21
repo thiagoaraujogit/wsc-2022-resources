@@ -1,0 +1,163 @@
+AWS::CloudFormation::Init:
+    configSets:
+      default:
+        - awslogs
+        - hooks
+        - server
+        - rsyslog
+
+    awslogs:
+      packages:
+        yum:
+          awslogs: []
+
+      files:
+        /etc/awslogs/config/cfn-init.conf:
+          content: !Sub |
+            [/var/log/cfn-init.log]
+            datetime_format = %b %d %H:%M:%S
+            file = /var/log/cfn-init.log
+            buffer_duration = 5000
+            log_stream_name = {instance_id}
+            initial_position = start_of_file
+            log_group_name = cfn-init_logs
+          mode: "000644"
+          owner: root
+          group: root
+
+        /etc/awslogs/config/cfn-hup.conf:
+          content: !Sub |
+            [/var/log/cfn-hup.log]
+            datetime_format = %b %d %H:%M:%S
+            file = /var/log/cfn-hup.log
+            buffer_duration = 5000
+            log_stream_name = {instance_id}
+            initial_position = start_of_file
+            log_group_name = cfn-hup_logs
+          mode: "000644"
+          owner: root
+          group: root
+
+        /etc/awslogs/config/server.conf:
+          content: !Sub |
+            [/home/ec2-user/server.log]
+            datetime_format = %b %d %H:%M:%S
+            file = /home/ec2-user/server.log
+            buffer_duration = 5000
+            log_stream_name = {instance_id}
+            initial_position = start_of_file
+            log_group_name = server_logs
+          mode: "000644"
+          owner: root
+          group: root
+
+        /etc/awslogs/awscli.conf:
+          content: !Sub |
+            [plugins]
+            cwlogs = cwlogs
+            [default]
+            region = ${AWS::Region}
+          mode: '000555'
+          owner: root
+          group: root 
+
+      services:
+        sysvinit:
+          awslogsd:
+            enabled: 'true'
+            ensureRunning: 'true'
+            packages:
+              yum:
+                - awslogs
+            files:
+              - /etc/awslogs/config/cfn-init.conf
+              - /etc/awslogs/config/cfn-hup.conf
+              - /etc/awslogs/config/server.conf
+              - /etc/awslogs/awscli.conf
+
+    hooks:
+      files:
+        /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+          content: !Sub |
+            [cfn-auto-reloader-hook]
+            triggers=post.update
+            path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init
+            action=/opt/aws/bin/cfn-init --stack ${AWS::StackName} --region ${AWS::Region} --resource LaunchConfig --configsets default
+            runas=root
+          mode: "000400"
+          owner: "root"
+          group: "root"
+
+        /etc/cfn/cfn-hup.conf:
+          content: !Sub |
+            [main]
+            stack=${AWS::StackId}
+            region=${AWS::Region}
+            role=${IAMRole}
+            interval=1
+          mode: 000400
+          owner: root
+          group: root
+
+      services:
+        sysvinit:
+          cfn-hup:
+            enabled: "true"
+            ensureRunning: "true"
+            files:
+            - "/etc/cfn/cfn-hup.conf"
+            - "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+
+    server:
+      files:
+        /home/ec2-user/server.bin:
+          source: !Sub https://${BucketName}.s3.${AWS::Region}.amazonaws.com/${FileName}
+          mode: '000555'
+          owner: root
+          group: root 
+        
+        /etc/systemd/system/server.service:
+          content: !Sub |
+            [Unit]
+            Description=Server application service.
+
+            [Service]
+            Type=simple
+            WorkingDirectory=/home/ec2-user/
+            ExecStart=/home/ec2-user/server.bin -memcache-server <endpoint>:11211
+            StandardOutput=syslog
+            StandardError=syslog
+            SyslogIdentifier=server
+
+            [Install]
+            WantedBy=multi-user.target
+          mode: '000555'
+          owner: root
+          group: root 
+
+      services:
+        sysvinit:
+          server:
+            enabled: true 
+            ensureRunning: true
+            files:
+              - /home/ec2-user/server.bin
+              - /etc/systemd/system/server.service
+    
+    rsyslog:
+      files:
+        /etc/rsyslog.d/server.conf:
+          content: !Sub |
+            if $programname == 'server' then /home/ec2-user/server.log
+            & stop
+          mode: "000644"
+          owner: root
+          group: root
+
+      services:
+        sysvinit:
+          rsyslog:
+            enabled: true
+            ensureRunning: true
+            files:
+                - /etc/rsyslog.d/server.conf
