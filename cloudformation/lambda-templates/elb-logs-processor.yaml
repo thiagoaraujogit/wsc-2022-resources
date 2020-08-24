@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lambda function to process the load balancer logs
+  
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Bucket name (where lambda function is stored)
+  
+  S3FileLocation:
+    Type: String
+    Description: Lambda function path
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Bucket properties"
+      Parameters:
+        - S3BucketName
+        - S3FileLocation
+
+Resources:
+  LambdaLogsProcessor:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code: #required
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Ref S3FileLocation
+      Description: Load balancer logs processor
+      FunctionName: ALB-Logs-Processor
+      Handler: alb-logs-processor.handler #required
+      Role: !GetAtt LogsProcessorRole.Arn
+      Runtime: nodejs12.x #required
+
+  LogsProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - cloudwatch:*
+                  - s3:*
+                  - logs:*
+                Resource: '*'
+      RoleName: logs-processor-role
+
+Outputs:
+  LambdaLogsProcessorName:
+    Value: !Ref LambdaLogsProcessor
+    Export:
+      Name: LambdaLogsProcessorName
+  
+  LambdaLogsProcessorARN:
+    Value: !GetAtt LambdaLogsProcessor.Arn
+    Export:
+      Name: LambdaLogsProcessorARN
+  
+  LogsProcessorRoleArn:
+    Value: !GetAtt LogsProcessorRole.Arn
+    Export:
+      Name: LogsProcessorRoleArn
