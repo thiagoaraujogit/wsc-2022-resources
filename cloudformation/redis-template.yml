@@ -63,15 +63,16 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${EnvironmentType}-Redis-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-Redis-SecurityGroup
+      GroupDescription: Access rules to ElastiCache Redis
       VpcId:
         Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
       SecurityGroupIngress:
-          - IpProtocol: "tcp"
-            FromPort: "6379"
-            ToPort: "6379"
+          - IpProtocol: tcp
+            FromPort: 6379
+            ToPort: 6379
             SourceSecurityGroupId:
               Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+            Description: Allows REDIS (port 6379) traffic from application
       Tags:
         - Key: Name
           Value: Redis-SG
@@ -83,9 +84,10 @@ Resources:
       CacheNodeType: cache.t2.micro
       CacheSubnetGroupName: !Ref ElasticCacheSubnetGroup
       Engine: redis
+      MultiAZEnabled: true
       NumCacheClusters: 2
-      Port: "6379"
-      ReplicationGroupDescription: !Sub ${EnvironmentType}-Redis-${Version}
+      Port: 6379
+      ReplicationGroupDescription: ElastiCache Redis for application
       ReplicationGroupId: !Sub ${EnvironmentType}-Redis-${Version}
       SecurityGroupIds:
         - !Ref RedisSecurityGroup
