@@ -1,64 +1,89 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Refund template
-
+Description: Lambda functions for atomatic refunds
+  
 Parameters:
-  GameTeam:
-    Description: Gameday Team ID
+  S3BucketName:
     Type: String
-
-  RefundEndpoint:
-    Description: Endpoint to send refund codes (http://<endpoint>/<path>)
-    Type: String 
-
-  IAMRole:
+    Description: Bucket name (where lambda function is stored)
+  
+  S3FileLocation:
     Type: String
-    Description: IAM role ARN
-    
+    Description: Lambda function path
+
+  Team:
+    Type: String
+    Description: Gameday team ID
+
+  GamedayAPIURL:
+    Type: String
+    Description: URL to send the refund codes
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Label:
+        default: "Bucket properties"
+      Parameters:
+        - S3BucketName
+        - S3FileLocation
+    -
+      Label:
+        default: "Code properties"
+      Parameters:
+        - Team
+        - GamedayAPIURL
+
 Resources:
-  LambdaRefundFunction:
+  LambdaRefund:
     Type: "AWS::Lambda::Function"
     Properties:
       Code: #required
-        ZipFile: !Sub |
-          import json, base64, gzip, logging
-          from botocore.vendored import requests
-
-          log_level = os.getenv('LOG_LEVEL',20)
-          logger = logging.getLogger()
-          logger.setLevel(int(log_level))
-
-          def lambda_handler(event, context):
-              print(f'Event: {event}')
-              compressed_payload = base64.b64decode(event['awslogs']['data'])
-              json_payload = gzip.decompress(compressed_payload)
-              payload = json.loads(json_payload)
-
-              logging.debug(f'JSON Event: {json_payload}')
-
-              for events in payload['logEvents']:
-                  refundd = events['message'].split(" ")[6]
-                  logging.info(f'Refund code: {refundd}')
-                  parameter = {'team': '${GameTeam}', 'refund': f'refundd'}
-                  response = requests.get('${RefundEndpoint}',params=parameter)
-                  print(response.json())
-                  return {
-                      'statusCode': response.status_code,
-                      'body': response.json()
-                  }
-      Description: Refund function
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Ref S3FileLocation
+      Description: Lambda for automatic refunds
       Environment:
         Variables:
           LOG_LEVEL: 10
+          gameday_properties: !Sub '{"team": "${Team}", "gamedayUrl": "${GamedayAPIURL}"}'
       FunctionName: refund-function
-      Handler: index.lambda_handler #required
-      Role: !Ref IAMRole #required
+      Handler: lambda_function.lambda_handler #required
+      Role: !GetAtt RefundLambdaRole.Arn #required
       Runtime: python3.8 #required
+
+  RefundLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - cloudwatch:*
+                  - s3:*
+                  - logs:*
+                Resource: '*'
+      RoleName: refund-lambda-role
   
 Outputs:
-  LambdaRefundFunctionARN:
-    Value: !GetAtt LambdaRefundFunction.Arn
+  RefundLambda:
+    Value: !Ref LambdaRefund
     Export:
-      Name: LambdaRefundFunctionARN
+      Name: !Sub ${AWS::StackName}-RefundLambda
   
-  IAMRoleLambda:
-    Value: !Sub ${IAMRole}
+  RefundLambdaRole:
+    Value: !Ref RefundLambdaRole
+    Export:
+      Name: !Sub ${AWS::StackName}-RefundLambdaRole
