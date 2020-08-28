@@ -88,18 +88,18 @@ Resources:
         - Key: load_balancing.algorithm.type
           Value: least_outstanding_requests
 
-  # ElbListenerRule:
-  #   Type: AWS::ElasticLoadBalancingV2::ListenerRule
-  #   Properties:
-  #     Actions:
-  #       - Type: forward
-  #         TargetGroupArn: !Ref ElbTargetGroup8080
-  #     Conditions:
-  #     - Field: path-pattern
-  #       Values:
-  #         - /refund
-  #     ListenerArn: !Ref ElbListener
-  #     Priority: 1
+  ElbListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ElbTargetGroup8080
+      Conditions:
+      - Field: path-pattern
+        Values:
+          - /refund
+      ListenerArn: !Ref ElbListener
+      Priority: 1
 
   # ElbListener8080:
   #   Type: AWS::ElasticLoadBalancingV2::Listener
@@ -111,22 +111,22 @@ Resources:
   #     Port: 8080
   #     Protocol: HTTP
 
-  # ElbTargetGroup8080:
-  #   Type: AWS::ElasticLoadBalancingV2::TargetGroup
-  #   Properties:
-  #     HealthCheckIntervalSeconds: 5
-  #     HealthCheckTimeoutSeconds: 3
-  #     HealthyThresholdCount: 2
-  #     UnhealthyThresholdCount: 2
-  #     HealthCheckPath: /refund
-  #     Name: !Join ['-',[!Ref EnvironmentType,'SecondApp-TG']]
-  #     Port: 8080
-  #     Protocol: HTTP
-  #     VpcId:
-  #       Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
-  #     TargetGroupAttributes:
-  #       - Key: deregistration_delay.timeout_seconds
-  #         Value: 10
+  ElbTargetGroup8080:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckPath: /refund
+      Name: !Join ['-',[!Ref EnvironmentType,'SecondApp-TG']]
+      Port: 8080
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 10
 
 Outputs:
   ElasticLoadBalancerDNS:
@@ -164,11 +164,11 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-ElbListener"
 
-  # ElbTargetGroup8080ARN:
-  #   Description: ElbTargetGroupARN
-  #   Value: !Ref ElbTargetGroup8080
-  #   Export:
-  #     Name: !Sub "${AWS::StackName}-ElbTargetGroup8080-ARN"
+  ElbTargetGroup8080ARN:
+    Description: ElbTargetGroupARN
+    Value: !Ref ElbTargetGroup8080
+    Export:
+      Name: !Sub "${AWS::StackName}-ElbTargetGroup8080-ARN"
 
   # ElbTargetGroup8080FullName:
   #   Description: ElbTargetGroupFullName

@@ -402,21 +402,25 @@ Resources:
     Condition: CreateResourcesProd
     Properties:
       GroupName: !Sub ${EnvironmentType}-Application-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-Application-SecurityGroup
+      GroupDescription: Access rules to application
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           SourceSecurityGroupId: !Ref ElbSecurityGroup
+          Description: Allows HTTP traffic from Load Balancer
         # - IpProtocol: tcp
         #   FromPort: 443
         #   ToPort: 443
         #   SourceSecurityGroupId: !Ref ElbSecurityGroup
+        #   Description: Allows HTTPS traffic from Load Balancer
+
         # - IpProtocol: tcp
         #   FromPort: 8080
         #   ToPort: 8080
         #   SourceSecurityGroupId: !Ref ElbSecurityGroup
+        #   Description: Allows port 8080 traffic from Load Balancer
       Tags:
         - Key: Name
           Value: Application-SG
@@ -426,13 +430,14 @@ Resources:
     Condition: CreateResourcesProd
     Properties:
       GroupName: !Sub ${EnvironmentType}-ELB-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-ELB-SecurityGroup
+      GroupDescription: Access rules to load balancer
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+          Description: Allows HTTP traffic from everywhere
         # - IpProtocol: tcp
         #   FromPort: 443
         #   ToPort: 443

@@ -79,15 +79,16 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${EnvironmentType}-EFS-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-EFS-SecurityGroup
+      GroupDescription: Access rules to Elastic File System
       VpcId:
         Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
       SecurityGroupIngress:
-          - IpProtocol: "tcp"
-            FromPort: "2049"
-            ToPort: "2049"
+          - IpProtocol: tcp
+            FromPort: 2049
+            ToPort: 2049
             SourceSecurityGroupId:
               Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+            Description: Allows NFS (port 2049) traffic from application
       Tags:
         - Key: Name
           Value: ElasticFileSystem-SG

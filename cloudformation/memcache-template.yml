@@ -65,7 +65,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${EnvironmentType}-Memcache-SecurityGroup
-      GroupDescription: Memcache access
+      GroupDescription: Access rules to ElastiCache Memcached
       VpcId:
         Fn::ImportValue: !Sub ${NetworkStack}-${EnvironmentType}-MyVPC
       SecurityGroupIngress:
@@ -74,6 +74,7 @@ Resources:
           ToPort: 11211
           SourceSecurityGroupId:
             Fn::ImportValue: !Sub ${NetworkStack}-AppSecurityGroup
+          Description: Allows Memcached (port 11211) traffic from application
       Tags:
         - Key: Name
           Value: Memcache-SG

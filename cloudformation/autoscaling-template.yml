@@ -218,9 +218,9 @@ Resources:
             /home/ec2-user/server.ini:
               content: !Sub | 
                 "LogLocation" = "./"
+                "MemcacheHost" = "prod-memcache-elc.xamzfo.cfg.use1.cache.amazonaws.com"
+                "MemcachePort" = "11211"
                 "AwsRegion" = "us-east-1"
-                "AwsDynamoTable" = "unicorns"
-                "AwsS3Bucket" = "simulation53"
               mode: '000555'
               owner: root
               group: root 
@@ -275,7 +275,7 @@ Resources:
       InstanceMonitoring: true
       InstanceType: t2.micro
       KeyName: !Ref KeyName
-      LaunchConfigurationName: !Join ['-',[!Ref EnvironmentType,'Application-LC-3']]
+      LaunchConfigurationName: !Join ['-',[!Ref EnvironmentType,'Application-LC-3asd']]
       SecurityGroups:
         - Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
       UserData:
@@ -285,6 +285,9 @@ Resources:
 
             /opt/aws/bin/cfn-init --stack "${AWS::StackName}" --region "${AWS::Region}" --resource LaunchConfig
             /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource AutoScale
+
+            DD_AGENT_MAJOR_VERSION=7 DD_API_KEY=84a43f59db09451bcdc0ba6ea51d943d DD_SITE="datadoghq.com" bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script.sh)"
+            systemctl restart datadog-agent
 
   AutoScale:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -310,13 +313,13 @@ Resources:
       LaunchConfigurationName: !Ref LaunchConfig
       HealthCheckGracePeriod: 120
       HealthCheckType: ELB
-      MinSize: 6
+      MinSize: 2
       # DesiredCapacity: !Ref DesiredCapacity
       MaxSize: 20
       Cooldown: 150
       TerminationPolicies:
         - OldestInstance
-      AutoScalingGroupName: !Sub ${EnvironmentType}-application-as-3
+      AutoScalingGroupName: !Sub ${EnvironmentType}-application-as-3asd
       VPCZoneIdentifier:
         - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
         - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2

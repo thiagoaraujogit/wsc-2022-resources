@@ -118,7 +118,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${EnvironmentType}-Aurora-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-Aurora-SecurityGroup
+      GroupDescription: !Sub Access rules to ${DBEngine}
       VpcId:
         Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
       SecurityGroupIngress:
@@ -127,6 +127,7 @@ Resources:
           ToPort: !Ref DBPort
           SourceSecurityGroupId:
             Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+          Description: !Sub Allows ${DBEngine} traffic from application
       Tags:
         - Key: Name
           Value: Database-SG

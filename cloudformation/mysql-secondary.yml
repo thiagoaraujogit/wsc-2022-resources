@@ -7,6 +7,10 @@ Parameters:
     Type: String
     Description: Network stack name
 
+  DatabaseStack:
+    Type: String
+    Description: Main database stack name
+
   DBName:
     Type: String
     Default: worldskills
@@ -38,8 +42,8 @@ Parameters:
 
   Version:
     Type: String
-    Description: Application version
-    Default: Default
+    Description: This cant be equal than mysql main name
+    Default: Secondary
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -49,6 +53,7 @@ Metadata:
         default: "Stack Association"
       Parameters:
         - Network
+        - DatabaseStack
     -
       Label:
         default: "Environment Properties"
@@ -64,39 +69,45 @@ Metadata:
         - DBPass
         - Version
 
+Conditions:
+  CreateResourcesProd: !Equals [!Ref EnvironmentType, Prod]
+  CreateResourcesTest: !Equals [!Ref EnvironmentType, Test]
+
 Resources:
-  PrivateDBSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: MysqlPrivateSubnetGroup
-      SubnetIds:
-        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet1
-        - Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-${SubnetPrefix}-Subnet2
-      Tags:
-        - Key: Name
-          Value: MysqlPrivateSubnetGroup
-
-  MySQLSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub ${EnvironmentType}-MySQL-SecurityGroup
-      GroupDescription: Access rules to RDS MySQL
-      VpcId:
-        Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
-      SecurityGroupIngress:
-        -
-          IpProtocol: tcp
-          FromPort: 3306
-          ToPort: 3306
-          SourceSecurityGroupId:
-            Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
-          Description: Allows MySQL (port 3306) traffic from application
-      Tags:
-        - Key: Name
-          Value: Database-SG
-
   MySQLDBInstance:
+    Condition: CreateResourcesProd
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllocatedStorage: 20
+      # BackupRetentionPeriod: 0
+      DBParameterGroupName:
+        Fn::ImportValue: !Sub "${DatabaseStack}-RDSDBParameterGroup"
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql']]
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${DatabaseStack}-MySQLSecurityGroup
+      DBSubnetGroupName: 
+        Fn::ImportValue: !Sub ${DatabaseStack}-MySQLSubnetGroup
+      Engine: mysql
+      EngineVersion: 8.0.15
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPass
+      MultiAZ: true
+      PubliclyAccessible: false
+      # StorageEncrypted: true
+      # KmsKeyId: !Ref RDSKMSKey
+      StorageType: gp2
+      Tags:
+        - Key: Name
+          Value: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql']]
+
+  tMySQLDBInstance:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateResourcesTest
     DeletionPolicy: Delete
     Properties:
       AllocatedStorage: 20
@@ -107,13 +118,14 @@ Resources:
       DBInstanceIdentifier: !Join ['-',[!Ref EnvironmentType,!Ref Version,'mysql']]
       DBName: !Ref DBName
       VPCSecurityGroups:
-        - !Ref MySQLSecurityGroup
-      DBSubnetGroupName: !Ref PrivateDBSubnetGroup
+        - Fn::ImportValue: !Sub ${DatabaseStack}-MySQLSecurityGroup
+      DBSubnetGroupName:
+        Fn::ImportValue: !Sub ${DatabaseStack}-MySQLSubnetGroup
       Engine: mysql
       EngineVersion: 8.0.15
       MasterUsername: !Ref DBUser
       MasterUserPassword: !Ref DBPass
-      MultiAZ: true
+      MultiAZ: false
       PubliclyAccessible: false
       # StorageEncrypted: true
       # KmsKeyId: !Ref RDSKMSKey
@@ -138,26 +150,30 @@ Resources:
 
 Outputs:
   MySQLDBInstance:
+    Condition: CreateResourcesProd
     Description: MySQLARN
     Value: !Ref MySQLDBInstance
     Export:
       Name: !Sub "${AWS::StackName}-MySQLDBInstance"
 
   MySQLDBInstanceEndpoint:
+    Condition: CreateResourcesProd
     Description: 'MySQL Endpoint'
     Value: !GetAtt [MySQLDBInstance,Endpoint.Address]
     Export:
       Name: !Sub "${AWS::StackName}-MySQLDBInstanceEndpoint"
 
-  MySQLSecurityGroup:
-    Description: MySQL Security group
-    Value: !Ref MySQLSecurityGroup
+  tMySQLDBInstance:
+    Condition: CreateResourcesTest
+    Description: MySQLARN
+    Value: !Ref tMySQLDBInstance
     Export:
-      Name: !Sub ${AWS::StackName}-MySQLSecurityGroup
-  
-  MySQLSubnetGroup:
-    Description: MySQL Subnet Group
-    Value: !Ref PrivateDBSubnetGroup
+      Name: !Sub "${AWS::StackName}-MySQLDBInstance"
+
+  tMySQLDBInstanceEndpoint:
+    Condition: CreateResourcesTest
+    Description: 'MySQL Endpoint'
+    Value: !GetAtt [tMySQLDBInstance,Endpoint.Address]
     Export:
-      Name: !Sub ${AWS::StackName}-MySQLSubnetGroup
+      Name: !Sub "${AWS::StackName}-MySQLDBInstanceEndpoint"
 

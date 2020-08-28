@@ -98,7 +98,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${EnvironmentType}-DocDB-SecurityGroup
-      GroupDescription: !Sub ${EnvironmentType}-DocDB-SecurityGroup
+      GroupDescription: Access rules to DocumentDB MongoDB
       VpcId:
         Fn::ImportValue: !Sub ${Network}-${EnvironmentType}-MyVPC
       SecurityGroupIngress:
@@ -108,6 +108,7 @@ Resources:
           ToPort: 27017
           SourceSecurityGroupId:
             Fn::ImportValue: !Sub ${Network}-AppSecurityGroup
+          Description: Allows MongoDB (port 27017) traffic from application
       Tags:
         - Key: Name
           Value: DocumentDB-SG
