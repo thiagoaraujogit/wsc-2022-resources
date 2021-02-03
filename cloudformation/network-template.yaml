@@ -9,6 +9,7 @@ Metadata:
         default: "Network Properties"
       Parameters:
         - EnvironmentType
+        - EnvironmentLayers
         - CidrNetwork
         - AZs
 
@@ -29,9 +30,18 @@ Parameters:
       - Test
       - Prod
 
+  EnvironmentLayers:
+    Type: String
+    Description: Environment layers
+    AllowedValues:
+      - Only-Application
+      - Databases-and-Application
+
 Conditions:
   CreateResourcesProd: !Equals [!Ref EnvironmentType, Prod]
   CreateResourcesTest: !Equals [!Ref EnvironmentType, Test]
+  Only-Application: !Equals [!Ref EnvironmentLayers, Only-Application]
+  Databases-and-Application: !Equals [!Ref EnvironmentLayers, Databases-and-Application]
 
 Resources:
 
@@ -53,29 +63,31 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: prod-VPC
+          Value: VPC-Production
 
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Condition: CreateResourcesProd
     Properties:
+      MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [0, !Ref AZs]
       VpcId: !Ref MyVPC
-      CidrBlock: !Select [0, !Cidr [!Ref CidrNetwork, 4, 8] ]
+      CidrBlock: !Select [0, !Cidr [!Ref CidrNetwork, 8, 8] ]
       Tags:
         - Key: Name
-          Value: prod-Public1-Subnet
+          Value: Public-Subnet-1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Condition: CreateResourcesProd
     Properties:
+      MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [1, !Ref AZs]
       VpcId: !Ref MyVPC
-      CidrBlock: !Select [1, !Cidr [!Ref CidrNetwork, 4, 8] ]
+      CidrBlock: !Select [1, !Cidr [!Ref CidrNetwork, 8, 8] ]
       Tags:
         - Key: Name
-          Value: prod-Public2-Subnet
+          Value: Public-Subnet-2
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -83,10 +95,10 @@ Resources:
     Properties:
       AvailabilityZone: !Select [0, !Ref AZs]
       VpcId: !Ref MyVPC
-      CidrBlock: !Select [2, !Cidr [!Ref CidrNetwork, 4, 8] ]
+      CidrBlock: !Select [2, !Cidr [!Ref CidrNetwork, 8, 8] ]
       Tags:
         - Key: Name
-          Value: prod-Private1-Subnet
+          Value: Private-Subnet-1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -94,10 +106,32 @@ Resources:
     Properties:
       AvailabilityZone: !Select [1, !Ref AZs]
       VpcId: !Ref MyVPC
-      CidrBlock: !Select [3, !Cidr [!Ref CidrNetwork, 4, 8] ]
+      CidrBlock: !Select [3, !Cidr [!Ref CidrNetwork, 8, 8] ]
       Tags:
         - Key: Name
-          Value: prod-Private2-Subnet
+          Value: Private-Subnet-2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Condition: Databases-and-Application
+    Properties:
+      AvailabilityZone: !Select [0, !Ref AZs]
+      VpcId: !Ref MyVPC
+      CidrBlock: !Select [4, !Cidr [!Ref CidrNetwork, 8, 8] ]
+      Tags:
+        - Key: Name
+          Value: Private-Subnet-3
+
+  PrivateSubnet4:
+    Type: AWS::EC2::Subnet
+    Condition: Databases-and-Application
+    Properties:
+      AvailabilityZone: !Select [1, !Ref AZs]
+      VpcId: !Ref MyVPC
+      CidrBlock: !Select [5, !Cidr [!Ref CidrNetwork, 8, 8] ]
+      Tags:
+        - Key: Name
+          Value: Private-Subnet-4
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -105,7 +139,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: prod-InternetGateway
+          Value: Internet-Gateway
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -115,7 +149,7 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
 
   S3VPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
+    Type: AWS::EC2::VPCEndpoint
     Condition: CreateResourcesProd
     Properties:
       PrivateDnsEnabled: false
@@ -126,7 +160,7 @@ Resources:
       VpcId: !Ref MyVPC
 
   DynamoVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
+    Type: AWS::EC2::VPCEndpoint
     Condition: CreateResourcesProd
     Properties:
       PrivateDnsEnabled: false
@@ -143,7 +177,7 @@ Resources:
       VpcId: !Ref MyVPC
       Tags:
         - Key: Name
-          Value: prod-RouteTable-Gateway
+          Value: Public-RouteTable
 
   RouteTableGatewayAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -179,7 +213,7 @@ Resources:
       SubnetId: !Ref PublicSubnet1
       Tags:
       - Key: Name
-        Value: prod-NAT-1
+        Value: NAT-1
 
   NAT2:
    Type: AWS::EC2::NatGateway
@@ -189,7 +223,7 @@ Resources:
       SubnetId: !Ref PublicSubnet2
       Tags:
       - Key: Name
-        Value: prod-NAT-2
+        Value: NAT-2
 
   EIPNAT1:
     Type: AWS::EC2::EIP
@@ -210,7 +244,7 @@ Resources:
       VpcId: !Ref MyVPC
       Tags:
         - Key: Name
-          Value: prod-RouteTable1-NAT
+          Value: Private-RouteTable-1
 
   RouteTableNAT2:
     Type: AWS::EC2::RouteTable
@@ -219,7 +253,7 @@ Resources:
       VpcId: !Ref MyVPC
       Tags:
         - Key: Name
-          Value: prod-RouteTable2-NAT
+          Value: Private-RouteTable-2
 
   RouteNAT1:
     Type: AWS::EC2::Route
@@ -250,6 +284,20 @@ Resources:
     Properties:
       RouteTableId: !Ref RouteTableNAT2
       SubnetId: !Ref PrivateSubnet2
+
+  AssociationNAT3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: Databases-and-Application
+    Properties:
+      RouteTableId: !Ref RouteTableNAT1
+      SubnetId: !Ref PrivateSubnet3
+
+  AssociationNAT4:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: Databases-and-Application
+    Properties:
+      RouteTableId: !Ref RouteTableNAT2
+      SubnetId: !Ref PrivateSubnet4
 
   PrivateACL:
     Type: "AWS::EC2::NetworkAcl"
@@ -282,16 +330,47 @@ Resources:
       RuleAction: Allow
       RuleNumber: 100
 
-  PublicEntryACLOut:
+  HTTPPublicEntryACLOut:
     Type: "AWS::EC2::NetworkAclEntry"
     Condition: CreateResourcesProd
     Properties:
       CidrBlock: 0.0.0.0/0
-      Egress: 'true'
+      Egress: true
       NetworkAclId: !Ref PublicACL
-      Protocol: -1
+      PortRange:
+        From: 80
+        To: 80
+      Protocol: 6
       RuleAction: Allow
       RuleNumber: 100
+
+  HTTPSPublicEntryACLOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 0.0.0.0/0
+      Egress: true
+      NetworkAclId: !Ref PublicACL
+      PortRange:
+        From: 443
+        To: 443
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 110
+
+  EphemeralPortsPublicEntryACLOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 0.0.0.0/0
+      Egress: true
+      NetworkAclId: !Ref PublicACL
+      PortRange:
+        From: 1024
+        To: 65535
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 120
 
   PublicHTTPSACL:
     Type: "AWS::EC2::NetworkAclEntry"
@@ -323,7 +402,7 @@ Resources:
     Type: "AWS::EC2::NetworkAclEntry"
     Condition: CreateResourcesProd
     Properties:
-      CidrBlock: 0.0.0.0/0
+      CidrBlock: 192.168.0.0/24
       NetworkAclId: !Ref PrivateACL
       PortRange:
         From: 80
@@ -332,22 +411,24 @@ Resources:
       RuleAction: Allow
       RuleNumber: 100
 
-  PrivateEntryACLOut:
+  PrivateHTTPACL2:
     Type: "AWS::EC2::NetworkAclEntry"
     Condition: CreateResourcesProd
     Properties:
-      CidrBlock: 0.0.0.0/0
-      Egress: 'true'
+      CidrBlock: 192.168.1.0/24
       NetworkAclId: !Ref PrivateACL
-      Protocol: -1
+      PortRange:
+        From: 80
+        To: 80
+      Protocol: 6
       RuleAction: Allow
-      RuleNumber: 100
+      RuleNumber: 110
 
   PrivateHTTPSACL:
     Type: "AWS::EC2::NetworkAclEntry"
     Condition: CreateResourcesProd
     Properties:
-      CidrBlock: 0.0.0.0/0
+      CidrBlock: 192.168.0.0/24
       NetworkAclId: !Ref PrivateACL
       PortRange:
         From: 443
@@ -355,6 +436,19 @@ Resources:
       Protocol: 6
       RuleAction: Allow
       RuleNumber: 120
+
+  PrivateHTTPSACL2:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 192.168.1.0/24
+      NetworkAclId: !Ref PrivateACL
+      PortRange:
+        From: 443
+        To: 443
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 130
 
   PrivateEphemeralPortsEntrySACL:
     Type: "AWS::EC2::NetworkAclEntry"
@@ -367,7 +461,49 @@ Resources:
         To: 65535
       Protocol: 6
       RuleAction: Allow
-      RuleNumber: 130
+      RuleNumber: 140
+
+  HTTPPrivateEntryACLOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 0.0.0.0/0
+      Egress: true
+      NetworkAclId: !Ref PrivateACL
+      PortRange:
+        From: 80
+        To: 80
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 100
+
+  HTTPSPrivateEntryACLOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 0.0.0.0/0
+      Egress: true
+      NetworkAclId: !Ref PrivateACL
+      PortRange:
+        From: 443
+        To: 443
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 110
+
+  EphemeralPortsPrivateEntryACLOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Condition: CreateResourcesProd
+    Properties:
+      CidrBlock: 0.0.0.0/0
+      Egress: true
+      NetworkAclId: !Ref PrivateACL
+      PortRange:
+        From: 1024
+        To: 65535
+      Protocol: 6
+      RuleAction: Allow
+      RuleNumber: 120
 
   PublicACLAssociation:
      Type: AWS::EC2::SubnetNetworkAclAssociation
@@ -397,6 +533,20 @@ Resources:
        SubnetId: !Ref PrivateSubnet2
        NetworkAclId: !Ref PrivateACL
 
+  PrivateACLAssociation3:
+     Type: AWS::EC2::SubnetNetworkAclAssociation
+     Condition: CreateResourcesProd
+     Properties:
+       SubnetId: !Ref PrivateSubnet1
+       NetworkAclId: !Ref PrivateACL
+
+  PrivateACLAssociation4:
+     Type: AWS::EC2::SubnetNetworkAclAssociation
+     Condition: CreateResourcesProd
+     Properties:
+       SubnetId: !Ref PrivateSubnet2
+       NetworkAclId: !Ref PrivateACL
+
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Condition: CreateResourcesProd
@@ -415,7 +565,6 @@ Resources:
         #   ToPort: 443
         #   SourceSecurityGroupId: !Ref ElbSecurityGroup
         #   Description: Allows HTTPS traffic from Load Balancer
-
         # - IpProtocol: tcp
         #   FromPort: 8080
         #   ToPort: 8080
@@ -442,10 +591,12 @@ Resources:
         #   FromPort: 443
         #   ToPort: 443
         #   CidrIp: 0.0.0.0/0
+        #   Description: Allows HTTPS traffic from everywhere
         # - IpProtocol: tcp
         #   FromPort: 8080
         #   ToPort: 8080
         #   CidrIp: 0.0.0.0/0
+        #   Description: Allows port 8080 traffic from everywhere
       Tags:
         - Key: Name
           Value: LoadBalancer-SG
@@ -763,6 +914,18 @@ Outputs:
     Condition: CreateResourcesProd
     Export:
       Name: !Sub "${AWS::StackName}-${EnvironmentType}-Private-Subnet2"
+
+  PrivateSubnet3:
+    Value: !Ref PrivateSubnet3
+    Condition: Databases-and-Application
+    Export:
+      Name: !Sub "${AWS::StackName}-${EnvironmentType}-Private-Subnet3"
+
+  PrivateSubnet4:
+    Value: !Ref PrivateSubnet4
+    Condition: Databases-and-Application
+    Export:
+      Name: !Sub "${AWS::StackName}-${EnvironmentType}-Private-Subnet4"
 
   AppSecurityGroup:
     Value: !Ref AppSecurityGroup
