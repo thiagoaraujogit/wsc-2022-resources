@@ -1,9 +1,9 @@
 <div align="center">
   <a href="https://giphy.com/gifs/kawaii-colorful-unicorn-WZmgVLMt7mp44"><img src="https://media1.giphy.com/media/WZmgVLMt7mp44/giphy.gif" alt="Liyas Thomas" width="200"></a>
   <br>
-  <h1>Thiago Rocha</h1>
+  <h1>My WorldSkills 2022 learning resources</h1>
   <sub>Built with ❤︎ by
-  <a href="https://github.com/thiagolizard">thiagolizard</a>
+  <a href="https://github.com/thiagolizard">thiagoaraujogit</a>
   </sub>
 </div> 
 
